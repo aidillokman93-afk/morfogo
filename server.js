@@ -77,7 +77,7 @@ function publicState(r){
     players:r.players.map(p=>({id:p.id,name:p.name,count:p.hand.length,score:r.scores[p.id]||0})),
     turn:currentPlayer(r)?.id||null,
     direction:r.direction,
-    plays:r.plays.map(x=>({playerId:x.playerId,name:x.name,card:x.card,score:x.score||0,special:x.special||false,skipped:x.skipped||false})),
+    plays:r.plays.map(x=>({playerId:x.playerId,name:x.name,card:x.card,score:x.score||0,special:x.special||false,skipped:x.skipped||false,chosenCategory:x.chosenCategory||null})),
     roundWinner:r.roundWinner,
     winner:r.winner,
     roundPoints:r.roundPoints||0,
@@ -202,7 +202,7 @@ wss.on('connection',ws=>{
           if(!categories.includes(m.category))return send(player,{type:'notice',message:'Pilih golongan kata baharu.'});
           player.hand.splice(idx,1);room.discard.push(card);
           chooseCategory(room,m.category);
-          room.plays.push({playerId:player.id,name:player.name,card,score:0,special:true});
+          room.plays.push({playerId:player.id,name:player.name,card,score:0,special:true,chosenCategory:m.category});
         }else if(card.type==='normal'){
           player.hand.splice(idx,1);room.discard.push(card);room.category=card.category;
           room.plays.push({playerId:player.id,name:player.name,card,score:card.number});
@@ -226,7 +226,7 @@ wss.on('connection',ws=>{
       if(card.type==='wild'){
         if(!categories.includes(m.category))return send(player,{type:'notice',message:'Pilih golongan kata baharu.'});
         player.hand.splice(idx,1);room.discard.push(card);chooseCategory(room,m.category);
-        room.plays.push({playerId:player.id,name:player.name,card,score:0,special:true});
+        room.plays.push({playerId:player.id,name:player.name,card,score:0,special:true,chosenCategory:m.category});
         markResolved(room,player.id);
         if(allResolved(room))finishRound(room);else{room.turn=findNextUnresolved(room);broadcast(room);sendHands(room);}
         return;
