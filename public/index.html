@@ -19,7 +19,6 @@
 <div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Tambah 1 Kad</button></div><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
 <div class="footer">Unit Bahasa Melayu MRSM Tun Mohammad Fuad Stephens</div></div>
 <script>
-<script>
 let ws = null;
 let me = null;
 let isHost = false;
@@ -32,35 +31,39 @@ function $(id){
 
 function connect(){
   return new Promise((resolve,reject)=>{
-    if(ws && ws.readyState===WebSocket.OPEN){
+    if(ws && ws.readyState === WebSocket.OPEN){
       resolve();
       return;
     }
 
-    ws=new WebSocket(
-      (location.protocol==='https:'?'wss://':'ws://')+location.host
+    ws = new WebSocket(
+      (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
     );
 
-    ws.onopen=()=>{
+    ws.onopen = () => {
       resolve();
     };
 
-    ws.onmessage=e=>{
-      const m=JSON.parse(e.data);
+    ws.onmessage = e => {
+      const m = JSON.parse(e.data);
 
-      if(m.type==='joined'){
-        me=m.id;
-        isHost=m.host;
-        $('shareLink').value=location.origin+location.pathname+'?room='+m.room;
-        $('roomLabel').textContent=m.room;
+      if(m.type === 'joined'){
+        me = m.id;
+        isHost = m.host;
+
+        $('shareLink').value =
+          location.origin + location.pathname + '?room=' + m.room;
+
+        $('roomLabel').textContent = m.room;
         $('home').classList.add('hidden');
         $('lobby').classList.remove('hidden');
-        $('startBtn').classList.toggle('hidden',!isHost);
+        $('startBtn').classList.toggle('hidden', !isHost);
+
         renderLobby();
       }
 
-      else if(m.type==='state'){
-        state=m.state;
+      else if(m.type === 'state'){
+        state = m.state;
 
         if(!state.started){
           renderLobby();
@@ -70,39 +73,39 @@ function connect(){
         }
       }
 
-      else if(m.type==='hand'){
-        hand=m.hand;
+      else if(m.type === 'hand'){
+        hand = m.hand;
         renderHand();
       }
 
-      else if(m.type==='notice'){
+      else if(m.type === 'notice'){
         notice(m.message);
       }
 
-      else if(m.type==='error'){
+      else if(m.type === 'error'){
         alert(m.message);
       }
     };
 
-    ws.onerror=()=>{
+    ws.onerror = () => {
       alert('Sambungan gagal. Cuba semula.');
       reject(new Error('WebSocket connection failed'));
     };
 
-    ws.onclose=()=>{
-      ws=null;
+    ws.onclose = () => {
+      ws = null;
     };
   });
 }
 
 function send(x){
-  if(ws && ws.readyState===WebSocket.OPEN){
+  if(ws && ws.readyState === WebSocket.OPEN){
     ws.send(JSON.stringify(x));
   }
 }
 
 async function createRoom(){
-  const name=$('name').value.trim();
+  const name = $('name').value.trim();
 
   if(!name){
     return alert('Masukkan nama pemain.');
@@ -112,16 +115,16 @@ async function createRoom(){
     await connect();
 
     send({
-      type:'create',
-      name:name,
-      target:Number($('target').value)
+      type: 'create',
+      name: name,
+      target: Number($('target').value)
     });
   }catch(e){}
 }
 
 async function joinRoom(){
-  const name=$('name').value.trim();
-  const room=$('room').value.trim().toUpperCase();
+  const name = $('name').value.trim();
+  const room = $('room').value.trim().toUpperCase();
 
   if(!name || !room){
     return alert('Masukkan nama dan kod bilik.');
@@ -131,17 +134,177 @@ async function joinRoom(){
     await connect();
 
     send({
-      type:'join',
-      name:name,
-      room:room
+      type: 'join',
+      name: name,
+      room: room
     });
   }catch(e){}
 }
-function renderLobby(){if(!state)return;$('lobbyPlayers').innerHTML=state.players.map((p,i)=>`<span class="pill">${i===0?'👑 ':''}${esc(p.name)}</span>`).join('');$('hostHint').textContent=isHost?`Pemain ${state.players.length}/${state.targetPlayers}. Mulakan apabila semua pemain sudah masuk.`:`Menunggu hos memulakan permainan… ${state.players.length}/${state.targetPlayers}`;if(isHost)$('startBtn').classList.toggle('hidden',state.players.length!==state.targetPlayers)}
-function copyLink(){navigator.clipboard?.writeText($('shareLink').value);$('copyMsg').textContent='Link telah disalin.';setTimeout(()=>$('copyMsg').textContent='',2000)}function startGame(){send({type:'start'})}function showGame(){$('lobby').classList.add('hidden');$('game').classList.remove('hidden')}
-function slug(s){return String(s).replace(/\s+/g,'-')}function render(){const p=state.players.find(x=>x.id===state.turn);$('currentCat').textContent=state.category||'-';$('count').textContent=hand.length;$('turn').textContent=p?`🎯 GILIRAN: ${p.name}`:'Menunggu…';$('players').innerHTML=state.players.map(p=>`<span class="pill">${p.id===state.turn?'🎯 ':''}${esc(p.name)} · ${p.count} kad</span>`).join('');renderTop();renderHand();if(state.winner){const w=state.players.find(p=>p.id===state.winner);$('win').classList.remove('hidden');$('win').textContent=`🏆 ${w?.name||'Pemain'} MENANG!`}}
-function renderTop(){const c=state.top;if(!c)return;$('top').innerHTML=cardHTML(c)}function renderHand(){$('hand').innerHTML=hand.map(c=>`<button class="playcard ${c.type!=='normal'?'special':slug(c.category)}" onclick="play('${c.id}')"><span class="num">${c.number??'★'}</span><span class="word">${esc(c.word)}</span><span class="cat">${esc(c.category||specialName(c.type))}</span></button>`).join('')}
-function cardHTML(c){return `<div class="uno-card ${c.type!=='normal'?'special':'normal '+slug(c.category)}"><span class="num">${c.number??'★'}</span><span class="word">${esc(c.word)}</span><span class="cat">${esc(c.category||specialName(c.type))}</span></div>`}function specialName(t){return ({draw2:'+2 KAD',skip:'LANGKAU',reverse:'TERBALIK',wild:'TUKAR GOLONGAN'})[t]||t}
-function play(id){if(!state||state.turn!==me)return notice('Bukan giliran anda.');const c=hand.find(x=>x.id===id);if(!c)return;if(c.type==='wild'){const pick=prompt('Pilih golongan kata:\n1. Kata Nama\n2. Kata Kerja\n3. Kata Adjektif\n4. Kata Hubung\n5. Kata Sendi');const map={'1':'Kata Nama','2':'Kata Kerja','3':'Kata Adjektif','4':'Kata Hubung','5':'Kata Sendi'};if(!map[pick])return;send({type:'play',cardId:id,category:map[pick]})}else send({type:'play',cardId:id})}
-function drawCard(){if(state?.turn!==me)return notice('Bukan giliran anda.');send({type:'draw'})}function notice(t){$('notice').innerHTML=`<div class="notice">${esc(t)}</div>`;setTimeout(()=>$('notice').innerHTML='',3500)}function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-</script></body></html>
+
+function renderLobby(){
+  if(!state) return;
+
+  $('lobbyPlayers').innerHTML =
+    state.players.map((p,i) =>
+      `<span class="pill">${i===0?'👑 ':''}${esc(p.name)}</span>`
+    ).join('');
+
+  $('hostHint').textContent =
+    isHost
+      ? `Pemain ${state.players.length}/${state.targetPlayers}. Mulakan apabila semua pemain sudah masuk.`
+      : `Menunggu hos memulakan permainan… ${state.players.length}/${state.targetPlayers}`;
+
+  if(isHost){
+    $('startBtn').classList.toggle(
+      'hidden',
+      state.players.length !== state.targetPlayers
+    );
+  }
+}
+
+function copyLink(){
+  navigator.clipboard?.writeText($('shareLink').value);
+  $('copyMsg').textContent = 'Link telah disalin.';
+  setTimeout(() => $('copyMsg').textContent = '', 2000);
+}
+
+function startGame(){
+  send({type:'start'});
+}
+
+function showGame(){
+  $('lobby').classList.add('hidden');
+  $('game').classList.remove('hidden');
+}
+
+function slug(s){
+  return String(s).replace(/\s+/g,'-');
+}
+
+function render(){
+  const p = state.players.find(x => x.id === state.turn);
+
+  $('currentCat').textContent = state.category || '-';
+  $('count').textContent = hand.length;
+  $('turn').textContent = p ? `🎯 GILIRAN: ${p.name}` : 'Menunggu…';
+
+  $('players').innerHTML =
+    state.players.map(p =>
+      `<span class="pill">${p.id===state.turn?'🎯 ':''}${esc(p.name)} · ${p.count} kad</span>`
+    ).join('');
+
+  renderTop();
+  renderHand();
+
+  if(state.winner){
+    const w = state.players.find(p => p.id === state.winner);
+    $('win').classList.remove('hidden');
+    $('win').textContent = `🏆 ${w?.name || 'Pemain'} MENANG!`;
+  }
+}
+
+function renderTop(){
+  const c = state.top;
+  if(!c) return;
+  $('top').innerHTML = cardHTML(c);
+}
+
+function renderHand(){
+  $('hand').innerHTML =
+    hand.map(c =>
+      `<button class="playcard ${c.type!=='normal'?'special':slug(c.category)}"
+        onclick="play('${c.id}')">
+        <span class="num">${c.number ?? '★'}</span>
+        <span class="word">${esc(c.word)}</span>
+        <span class="cat">${esc(c.category || specialName(c.type))}</span>
+      </button>`
+    ).join('');
+}
+
+function cardHTML(c){
+  return `<div class="uno-card ${c.type!=='normal'?'special':'normal '+slug(c.category)}">
+    <span class="num">${c.number ?? '★'}</span>
+    <span class="word">${esc(c.word)}</span>
+    <span class="cat">${esc(c.category || specialName(c.type))}</span>
+  </div>`;
+}
+
+function specialName(t){
+  return ({
+    draw2:'+2 KAD',
+    skip:'LANGKAU',
+    reverse:'TERBALIK',
+    wild:'TUKAR GOLONGAN'
+  })[t] || t;
+}
+
+function play(id){
+  if(!state || state.turn !== me)
+    return notice('Bukan giliran anda.');
+
+  const c = hand.find(x => x.id === id);
+  if(!c) return;
+
+  if(c.type === 'wild'){
+    const pick = prompt(
+      'Pilih golongan kata:\n' +
+      '1. Kata Nama\n' +
+      '2. Kata Kerja\n' +
+      '3. Kata Adjektif\n' +
+      '4. Kata Hubung\n' +
+      '5. Kata Sendi'
+    );
+
+    const map = {
+      '1':'Kata Nama',
+      '2':'Kata Kerja',
+      '3':'Kata Adjektif',
+      '4':'Kata Hubung',
+      '5':'Kata Sendi'
+    };
+
+    if(!map[pick]) return;
+
+    send({
+      type:'play',
+      cardId:id,
+      category:map[pick]
+    });
+  }else{
+    send({
+      type:'play',
+      cardId:id
+    });
+  }
+}
+
+function drawCard(){
+  if(state?.turn !== me)
+    return notice('Bukan giliran anda.');
+
+  send({type:'draw'});
+}
+
+function notice(t){
+  $('notice').innerHTML =
+    `<div class="notice">${esc(t)}</div>`;
+
+  setTimeout(
+    () => $('notice').innerHTML = '',
+    3500
+  );
+}
+
+function esc(s){
+  return String(s ?? '').replace(
+    /[&<>'"]/g,
+    c => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      "'":'&#39;',
+      '"':'&quot;'
+    }[c])
+  );
+}
+</script>
