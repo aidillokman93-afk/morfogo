@@ -30,9 +30,7 @@ function connect(){
       (location.protocol==='https:'?'wss://':'ws://')+location.host
     );
 
-    ws.onopen=()=>{
-      resolve();
-    };
+    ws.onopen=()=>resolve();
 
     ws.onmessage=e=>{
       const m=JSON.parse(e.data);
@@ -46,23 +44,23 @@ function connect(){
         $('lobby').classList.remove('hidden');
         $('startBtn').classList.toggle('hidden',!isHost);
         renderLobby();
-
-      }else if(m.type==='state'){
+      }
+      else if(m.type==='state'){
         state=m.state;
         if(!state.started) renderLobby();
-        else{
+        else {
           showGame();
           render();
         }
-
-      }else if(m.type==='hand'){
+      }
+      else if(m.type==='hand'){
         hand=m.hand;
         renderHand();
-
-      }else if(m.type==='notice'){
+      }
+      else if(m.type==='notice'){
         notice(m.message);
-
-      }else if(m.type==='error'){
+      }
+      else if(m.type==='error'){
         alert(m.message);
       }
     };
