@@ -17,7 +17,7 @@
 <section id="game" class="game hidden"><div class="panel"><div class="section-title"><div><b>MorfoGo</b> <span class="turntag">LIVE GAME</span></div><div>Pusingan <b id="roundNo">1</b>/<b id="roundTotal">10</b> · Kad anda: <b id="count">0</b></div></div><div class="turn" style="margin-top:15px">Golongan Kata: <b id="currentCat">Menunggu pembuka...</b><br><span id="turn">Menunggu giliran...</span></div><div id="notice"></div></div>
 <div class="panel"><div class="section-title"><h3>🏆 Papan Skor</h3><span class="mini">Mata terkumpul</span></div><div id="players" class="players"></div></div>
 <div class="panel"><div class="section-title"><h3>🎴 Kad yang telah dimainkan</h3><span class="mini">Nilai tertinggi menang</span></div><div id="plays" class="hand"></div><div id="roundResult" class="notice hidden"></div></div>
-<div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Ambil 1 Kad</button></div><p class="mini">Jika tiada kad kategori yang sesuai, anda boleh mengambil satu kad.</p><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
+<div class="panel"><div class="section-title"><h3>🎴 Kad Anda</h3><button id="drawBtn" class="btn light" onclick="drawCard()">➕ Ambil 1 Kad</button></div><p id="drawHint" class="mini">Jika tiada kad dengan golongan kata yang sedang dimainkan, ambil 1 kad.</p><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
 <div class="footer">Unit Bahasa Melayu MRSM Tun Mohammad Fuad Stephens</div></div>
 <script>
 let ws=null,me=null,isHost=false,state=null,hand=[];
@@ -32,7 +32,27 @@ function startGame(){send({type:'start'})}
 function showGame(){$('lobby').classList.add('hidden');$('game').classList.remove('hidden')}
 function render(){if(!state)return;$('roundNo').textContent=Math.min(state.round,state.totalRounds);$('roundTotal').textContent=state.totalRounds;$('currentCat').textContent=state.category||'Pilih kad pembuka';const p=state.players.find(x=>x.id===state.turn);$('turn').textContent=p?`🎯 GILIRAN: ${p.name}`:'Pusingan tamat';$('count').textContent=hand.length;$('players').innerHTML=state.players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>`<span class="pill">${i===0?'🏆 ':''}${esc(p.name)} · ${p.score} mata</span>`).join('');renderPlays();if(state.roundNotice){$('roundResult').classList.remove('hidden');$('roundResult').textContent=state.roundNotice}else $('roundResult').classList.add('hidden');if(state.winner){const w=state.players.find(p=>p.id===state.winner);$('win').classList.remove('hidden');$('win').textContent=`🏆 ${w?.name||'Pemain'} MENANG MORFOGO!`;}}
 function renderPlays(){$('plays').innerHTML=(state.plays||[]).map(x=>`<div class="playcard ${x.special?'special':slug(x.card.category)}"><span class="num">${x.card.number??'★'}</span><span class="word">${esc(x.card.word)}</span><span class="cat">${esc(x.name)} · ${x.special?'SPECIAL':x.score+' mata'}</span></div>`).join('')||'<span class="mini">Belum ada kad dimainkan.</span>'}
-function renderHand(){$('hand').innerHTML=hand.map(c=>{let disabled='';if(state&&state.turn!==me)disabled=' disabled';return `<button class="playcard ${c.type!=='normal'?'special':slug(c.category)}"${disabled} onclick="play('${c.id}')"><span class="num">${c.number??'★'}</span><span class="word">${esc(c.word)}</span><span class="cat">${esc(c.category||specialName(c.type))}</span></button>`}).join('')}
+function renderHand(){
+  const myTurn=!!(state&&state.turn===me);
+  const category=state?.category||null;
+  const hasMatch=!!(category&&hand.some(c=>c.type==='normal'&&c.category===category));
+  const drawBtn=$('drawBtn');
+  if(drawBtn){
+    drawBtn.disabled=!myTurn||!category||hasMatch;
+    drawBtn.style.opacity=drawBtn.disabled?'0.5':'1';
+    drawBtn.title=hasMatch?`Anda masih mempunyai kad ${category}.`:'Ambil 1 kad jika tiada kad yang sepadan.';
+  }
+  if($('drawHint')){
+    $('drawHint').textContent=hasMatch
+      ? `Anda mempunyai kad ${category}. Pilih kad tersebut atau gunakan kad special.`
+      : (myTurn&&category?'Tiada kad '+category+'? Tekan “Ambil 1 Kad”.':'Tunggu giliran anda.');
+  }
+  $('hand').innerHTML=hand.map(c=>{
+    let disabled=!myTurn?' disabled':'';
+    const cardClass=c.type!=='normal'?'special':slug(c.category);
+    return `<button class="playcard ${cardClass}"${disabled} onclick="play('${c.id}')"><span class="num">${c.number??'★'}</span><span class="word">${esc(c.word)}</span><span class="cat">${esc(c.category||specialName(c.type))}</span></button>`;
+  }).join('');
+}
 function slug(s){return String(s).replace(/\s+/g,'-')}
 function specialName(t){return({draw2:'+2 KAD',skip:'LANGKAU',reverse:'TERBALIK',wild:'TUKAR GOLONGAN'})[t]||t}
 function play(id){if(!state||state.turn!==me)return notice('Bukan giliran anda.');const c=hand.find(x=>x.id===id);if(!c)return;if(c.type==='wild'){const pick=prompt('Pilih golongan kata:\n1. Kata Nama\n2. Kata Kerja\n3. Kata Adjektif\n4. Kata Hubung\n5. Kata Sendi');const map={'1':'Kata Nama','2':'Kata Kerja','3':'Kata Adjektif','4':'Kata Hubung','5':'Kata Sendi'};if(!map[pick])return;send({type:'play',cardId:id,category:map[pick]})}else send({type:'play',cardId:id})}
