@@ -19,11 +19,103 @@
 <div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Tambah 1 Kad</button></div><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
 <div class="footer">Unit Bahasa Melayu MRSM Tun Mohammad Fuad Stephens</div></div>
 <script>
-let ws=null,me=null,isHost=false,state=null,hand=[];const $=id=>document.getElementById(id);const params=new URLSearchParams(location.search);if(params.get('room'))$('room').value=params.get('room').toUpperCase();
-function connect(){ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='joined'){me=m.id;isHost=m.host;$('shareLink').value=location.origin+location.pathname+'?room='+m.room;$('roomLabel').textContent=m.room;$('home').classList.add('hidden');$('lobby').classList.remove('hidden');$('startBtn').classList.toggle('hidden',!isHost);renderLobby()}else if(m.type==='state'){state=m.state;if(!state.started)renderLobby();else{showGame();render()}}else if(m.type==='hand'){hand=m.hand;renderHand()}else if(m.type==='notice')notice(m.message);else if(m.type==='error')alert(m.message)};ws.onerror=()=>alert('Sambungan gagal. Cuba semula.');}
-function send(x){if(ws?.readyState===1)ws.send(JSON.stringify(x))}
-function createRoom(){const name=$('name').value.trim();if(!name)return alert('Masukkan nama pemain.');connect();setTimeout(()=>send({type:'create',name,target:Number($('target').value)}),180)}
-function joinRoom(){const name=$('name').value.trim(),room=$('room').value.trim().toUpperCase();if(!name||!room)return alert('Masukkan nama dan kod bilik.');connect();setTimeout(()=>send({type:'join',name,room}),180)}
+function connect(){
+  return new Promise((resolve,reject)=>{
+    if(ws && ws.readyState===WebSocket.OPEN){
+      resolve();
+      return;
+    }
+
+    ws=new WebSocket(
+      (location.protocol==='https:'?'wss://':'ws://')+location.host
+    );
+
+    ws.onopen=()=>{
+      resolve();
+    };
+
+    ws.onmessage=e=>{
+      const m=JSON.parse(e.data);
+
+      if(m.type==='joined'){
+        me=m.id;
+        isHost=m.host;
+        $('shareLink').value=location.origin+location.pathname+'?room='+m.room;
+        $('roomLabel').textContent=m.room;
+        $('home').classList.add('hidden');
+        $('lobby').classList.remove('hidden');
+        $('startBtn').classList.toggle('hidden',!isHost);
+        renderLobby();
+
+      }else if(m.type==='state'){
+        state=m.state;
+        if(!state.started) renderLobby();
+        else{
+          showGame();
+          render();
+        }
+
+      }else if(m.type==='hand'){
+        hand=m.hand;
+        renderHand();
+
+      }else if(m.type==='notice'){
+        notice(m.message);
+
+      }else if(m.type==='error'){
+        alert(m.message);
+      }
+    };
+
+    ws.onerror=()=>{
+      alert('Sambungan gagal. Cuba semula.');
+      reject(new Error('WebSocket connection failed'));
+    };
+
+    ws.onclose=()=>{
+      ws=null;
+    };
+  });
+}
+
+function send(x){
+  if(ws && ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify(x));
+  }
+}
+
+async function createRoom(){
+  const name=$('name').value.trim();
+
+  if(!name)
+    return alert('Masukkan nama pemain.');
+
+  try{
+    await connect();
+    send({
+      type:'create',
+      name,
+      target:Number($('target').value)
+    });
+  }catch(e){}
+}
+
+async function joinRoom(){
+  const name=$('name').value.trim();
+  const room=$('room').value.trim().toUpperCase();
+
+  if(!name || !room)
+    return alert('Masukkan nama dan kod bilik.');
+
+  try{
+    await connect();
+    send({
+      type:'join',
+      name,
+      room
+    });
+  }catch(e){}
+}
 function renderLobby(){if(!state)return;$('lobbyPlayers').innerHTML=state.players.map((p,i)=>`<span class="pill">${i===0?'👑 ':''}${esc(p.name)}</span>`).join('');$('hostHint').textContent=isHost?`Pemain ${state.players.length}/${state.targetPlayers}. Mulakan apabila semua pemain sudah masuk.`:`Menunggu hos memulakan permainan… ${state.players.length}/${state.targetPlayers}`;if(isHost)$('startBtn').classList.toggle('hidden',state.players.length!==state.targetPlayers)}
 function copyLink(){navigator.clipboard?.writeText($('shareLink').value);$('copyMsg').textContent='Link telah disalin.';setTimeout(()=>$('copyMsg').textContent='',2000)}function startGame(){send({type:'start'})}function showGame(){$('lobby').classList.add('hidden');$('game').classList.remove('hidden')}
 function slug(s){return String(s).replace(/\s+/g,'-')}function render(){const p=state.players.find(x=>x.id===state.turn);$('currentCat').textContent=state.category||'-';$('count').textContent=hand.length;$('turn').textContent=p?`🎯 GILIRAN: ${p.name}`:'Menunggu…';$('players').innerHTML=state.players.map(p=>`<span class="pill">${p.id===state.turn?'🎯 ':''}${esc(p.name)} · ${p.count} kad</span>`).join('');renderTop();renderHand();if(state.winner){const w=state.players.find(p=>p.id===state.winner);$('win').classList.remove('hidden');$('win').textContent=`🏆 ${w?.name||'Pemain'} MENANG!`}}
