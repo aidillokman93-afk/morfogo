@@ -78,6 +78,7 @@ function publicState(r){
     turn:currentPlayer(r)?.id||null,
     direction:r.direction,
     plays:r.plays.map(x=>({playerId:x.playerId,name:x.name,card:x.card,score:x.score||0,special:x.special||false,skipped:x.skipped||false,chosenCategory:x.chosenCategory||null})),
+    lastPlays:r.lastPlays||[],
     roundWinner:r.roundWinner,
     winner:r.winner,
     roundPoints:r.roundPoints||0,
@@ -101,12 +102,14 @@ function startGame(r){
   r.turn=0;
   r.opener=0;
   r.plays=[];
+  r.lastPlays=[];
   r.resolvedIds=[];
   broadcast(r);
   sendHands(r);
   send(currentPlayer(r),{type:'notice',message:'Anda pembuka. Pilih satu kad bernombor untuk menentukan golongan kata.'});
 }
 function finishRound(r){
+  r.lastPlays=r.plays.map(x=>({playerId:x.playerId,name:x.name,card:x.card,score:x.score||0,special:x.special||false,skipped:x.skipped||false,chosenCategory:x.chosenCategory||null}));
   const normalPlays=r.plays.filter(x=>x.card.type==='normal');
   if(!normalPlays.length){
     r.roundWinner=null;
@@ -163,7 +166,7 @@ wss.on('connection',ws=>{
     if(m.type==='create'){
       const target=Math.min(5,Math.max(2,Number(m.target)||2));
       const code=roomCode();
-      room={code,targetPlayers:target,players:[],started:false,deck:[],discard:[],turn:0,opener:0,direction:1,category:null,round:0,plays:[],resolvedIds:[],scores:{},roundWinner:null,roundPoints:0,roundNotice:'',winner:null};
+      room={code,targetPlayers:target,players:[],started:false,deck:[],discard:[],turn:0,opener:0,direction:1,category:null,round:0,plays:[],lastPlays:[],resolvedIds:[],scores:{},roundWinner:null,roundPoints:0,roundNotice:'',winner:null};
       rooms.set(code,room);
       player={id:crypto.randomUUID(),name:String(m.name||'Pemain 1').slice(0,24),hand:[],ws};
       room.players.push(player);room.scores[player.id]=0;
