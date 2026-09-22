@@ -30,7 +30,9 @@ function connect(){
       (location.protocol==='https:'?'wss://':'ws://')+location.host
     );
 
-    ws.onopen=()=>resolve();
+    ws.onopen=()=>{
+      resolve();
+    };
 
     ws.onmessage=e=>{
       const m=JSON.parse(e.data);
@@ -45,27 +47,34 @@ function connect(){
         $('startBtn').classList.toggle('hidden',!isHost);
         renderLobby();
       }
+
       else if(m.type==='state'){
         state=m.state;
-        if(!state.started) renderLobby();
-        else {
+
+        if(!state.started){
+          renderLobby();
+        }else{
           showGame();
           render();
         }
       }
+
       else if(m.type==='hand'){
         hand=m.hand;
         renderHand();
       }
+
       else if(m.type==='notice'){
         notice(m.message);
       }
+
       else if(m.type==='error'){
         alert(m.message);
       }
     };
 
-  ws.onerror=()=>alert('Sambungan gagal. Cuba semula.');
+    ws.onerror=()=>{
+      alert('Sambungan gagal. Cuba semula.');
       reject(new Error('WebSocket connection failed'));
     };
 
@@ -81,17 +90,19 @@ function send(x){
   }
 }
 
-async function joinRoom()
+async function createRoom(){
   const name=$('name').value.trim();
 
-  if(!name)
+  if(!name){
     return alert('Masukkan nama pemain.');
+  }
 
   try{
     await connect();
+
     send({
       type:'create',
-      name,
+      name:name,
       target:Number($('target').value)
     });
   }catch(e){}
@@ -101,15 +112,17 @@ async function joinRoom(){
   const name=$('name').value.trim();
   const room=$('room').value.trim().toUpperCase();
 
-  if(!name || !room)
+  if(!name || !room){
     return alert('Masukkan nama dan kod bilik.');
+  }
 
   try{
     await connect();
+
     send({
       type:'join',
-      name,
-      room
+      name:name,
+      room:room
     });
   }catch(e){}
 }
