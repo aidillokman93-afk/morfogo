@@ -19,6 +19,17 @@
 <div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Tambah 1 Kad</button></div><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
 <div class="footer">Unit Bahasa Melayu MRSM Tun Mohammad Fuad Stephens</div></div>
 <script>
+<script>
+let ws = null;
+let me = null;
+let isHost = false;
+let state = null;
+let hand = [];
+
+function $(id){
+  return document.getElementById(id);
+}
+
 function connect(){
   return new Promise((resolve,reject)=>{
     if(ws && ws.readyState===WebSocket.OPEN){
