@@ -82,7 +82,8 @@ function publicState(r){
     roundWinner:r.roundWinner,
     winner:r.winner,
     roundPoints:r.roundPoints||0,
-    roundNotice:r.roundNotice||''
+    roundNotice:r.roundNotice||'',
+    roundAnnouncement:r.roundAnnouncement||''
   };
 }
 function startGame(r){
@@ -95,6 +96,7 @@ function startGame(r){
   r.roundWinner=null;
   r.roundPoints=0;
   r.roundNotice='';
+  r.roundAnnouncement='';
   r.scores={};
   r.players.forEach(p=>{p.hand=[];r.scores[p.id]=0;});
   for(let i=0;i<7;i++)for(const p of r.players)dealOne(p,r);
@@ -115,6 +117,7 @@ function finishRound(r){
     r.roundWinner=null;
     r.roundPoints=0;
     r.roundNotice='Tiada kad bernombor dimainkan dalam pusingan ini.';
+    r.roundAnnouncement='Tiada pemenang pusingan.';
   }else{
     const max=Math.max(...normalPlays.map(x=>x.card.number));
     const winners=normalPlays.filter(x=>x.card.number===max);
@@ -126,6 +129,9 @@ function finishRound(r){
     r.roundNotice=winners.length>1
       ? `Seri! ${winners.map(x=>x.name).join(', ')} masing-masing mendapat ${max} mata.`
       : `${winnerPlay.name} menang pusingan dengan ${max} mata.`;
+    r.roundAnnouncement=winners.length>1
+      ? `🏆 ${winners.map(x=>x.name).join(' & ')} MENANG!!`
+      : `🏆 ${winnerPlay.name} MENANG!!`;
   }
 
   if(r.round>=TOTAL_ROUNDS){
@@ -135,6 +141,9 @@ function finishRound(r){
     r.roundNotice=winners.length>1
       ? `🏆 SERI! ${winners.map(p=>p.name).join(', ')} memperoleh ${maxScore} mata.`
       : `🏆 ${winners[0]?.name||'Pemain'} ialah JUARA MORFOGO dengan ${maxScore} mata.`;
+    r.roundAnnouncement=winners.length>1
+      ? `🏆 SERI! ${winners.map(p=>p.name).join(' & ')} MENANG!!`
+      : `🏆 ${winners[0]?.name||'Pemain'} MENANG!!`;
     broadcast(r);
     sendHands(r);
     return;
@@ -166,7 +175,7 @@ wss.on('connection',ws=>{
     if(m.type==='create'){
       const target=Math.min(5,Math.max(2,Number(m.target)||2));
       const code=roomCode();
-      room={code,targetPlayers:target,players:[],started:false,deck:[],discard:[],turn:0,opener:0,direction:1,category:null,round:0,plays:[],lastPlays:[],resolvedIds:[],scores:{},roundWinner:null,roundPoints:0,roundNotice:'',winner:null};
+      room={code,targetPlayers:target,players:[],started:false,deck:[],discard:[],turn:0,opener:0,direction:1,category:null,round:0,plays:[],lastPlays:[],resolvedIds:[],scores:{},roundWinner:null,roundPoints:0,roundNotice:'',roundAnnouncement:'',winner:null};
       rooms.set(code,room);
       player={id:crypto.randomUUID(),name:String(m.name||'Pemain 1').slice(0,24),hand:[],ws};
       room.players.push(player);room.scores[player.id]=0;
@@ -195,6 +204,7 @@ wss.on('connection',ws=>{
 
     if(m.type==='play'){
       if(room.players[room.turn]?.id!==player.id)return send(player,{type:'notice',message:'Bukan giliran anda.'});
+      if(room.roundAnnouncement)room.roundAnnouncement='';
       if(room.resolvedIds.includes(player.id))return send(player,{type:'notice',message:'Anda sudah bermain untuk pusingan ini.'});
       const idx=player.hand.findIndex(c=>c.id===m.cardId);if(idx<0)return;
       const card=player.hand[idx];
@@ -281,14 +291,33 @@ wss.on('connection',ws=>{
 
     if(m.type==='draw'){
       if(room.players[room.turn]?.id!==player.id)return send(player,{type:'notice',message:'Bukan giliran anda.'});
+      if(room.roundAnnouncement)room.roundAnnouncement='';
       if(room.resolvedIds.includes(player.id))return send(player,{type:'notice',message:'Anda sudah selesai untuk pusingan ini.'});
       if(room.category===null)return send(player,{type:'notice',message:'Pemain pembuka perlu memilih kad terlebih dahulu.'});
       const hasMatch=player.hand.some(c=>c.type==='normal'&&c.category===room.category);
       if(hasMatch)return send(player,{type:'notice',message:`Anda masih mempunyai kad ${room.category}. Pilih kad itu atau gunakan kad special.`});
-      dealOne(player,room);
-      markResolved(room,player.id);
-      send(player,{type:'notice',message:'Tiada kad golongan kata yang sepadan. Anda mengambil 1 kad. Giliran diteruskan.'});
-      if(allResolved(room))finishRound(room);else{room.turn=findNextUnresolved(room);broadcast(room);sendHands(room);}
+
+      let drawn=0;
+      let foundMatch=false;
+      while(true){
+        const before=player.hand.length;
+        dealOne(player,room);
+        if(player.hand.length===before)break;
+        drawn++;
+        if(player.hand.some(c=>c.type==='normal'&&c.category===room.category)){
+          foundMatch=true;
+          break;
+        }
+      }
+
+      if(foundMatch){
+        send(player,{type:'notice',message:`Tiada kad ${room.category}. Anda mengambil ${drawn} kad sehingga mendapat kad yang sepadan. Sila pilih kad tersebut.`});
+        broadcast(room);sendHands(room);
+      }else{
+        markResolved(room,player.id);
+        send(player,{type:'notice',message:`Tiada lagi kad yang sepadan dalam dek. Anda mengambil ${drawn} kad dan giliran diteruskan.`});
+        if(allResolved(room))finishRound(room);else{room.turn=findNextUnresolved(room);broadcast(room);sendHands(room);}
+      }
       return;
     }
   });
