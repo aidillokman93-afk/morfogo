@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: morfogo
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
