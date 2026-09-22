@@ -11,300 +11,32 @@
 <section class="hero"><img class="logo" src="logo.png" alt="Logo MorfoGo"><div><div class="badge">UNIT BAHASA MELAYU • MRSM TMFS</div><h1>MorfoGo</h1><p>Permainan Bahasa Melayu — belajar, bermain & menguasai golongan kata.</p><p style="opacity:.8">Sehingga 5 peranti • 7 kad setiap pemain • permainan masa nyata</p></div></section>
 <div id="home" class="grid">
 <section class="panel"><h2>🎮 Mulakan Permainan</h2><p class="muted">Hos pilih jumlah pemain, kemudian kongsi satu link bilik kepada rakan.</p><div class="form"><input id="name" class="input" placeholder="Nama pemain" maxlength="24"><select id="target" class="select"><option value="2">2 pemain</option><option value="3">3 pemain</option><option value="4">4 pemain</option><option value="5" selected>5 pemain</option></select><button class="btn gold" onclick="createRoom()">Cipta Bilik</button></div><div class="divider"></div><div class="form"><input id="room" class="input" placeholder="Kod bilik"><button class="btn light" onclick="joinRoom()">Sertai Bilik</button></div><p class="mini">Maksimum 5 peranti dalam satu bilik.</p></section>
-<section class="panel"><h2>📜 Cara Bermain</h2><ol class="rules"><li>Setiap pemain menerima <b>7 kad</b>.</li><li>Padankan kad berdasarkan <b>golongan kata atau nombor</b>.</li><li>Tiada kad sesuai? Tekan <b>Tambah 1 Kad</b>.</li><li>Kad khas: <b>+2, Langkau, Terbalik & Tukar Golongan Kata</b>.</li><li>Kad khas selain “Tukar Golongan” mengekalkan <b>golongan kata terakhir</b>.</li><li>Kad “Tukar Golongan” membolehkan pemain memilih kategori baharu.</li><li>Pemain yang menghabiskan semua kad dahulu ialah <b>pemenang</b>.</li></ol></section>
+<section class="panel"><h2>📜 Cara Bermain</h2><ol class="rules"><li>Setiap pemain menerima <b>7 kad</b>.</li><li>Pemain pembuka memilih <b>golongan kata</b> untuk pusingan.</li><li>Pemain bermain <b>mengikut giliran</b> dan memilih kad daripada golongan kata tersebut.</li><li>Selepas semua pemain bermain, <b>nilai kad tertinggi</b> memenangi pusingan.</li><li>Pemenang mendapat mata berdasarkan nombor pada kad dan menjadi <b>pembuka pusingan seterusnya</b>.</li><li>Kad khas <b>+2, Langkau, Terbalik & Tukar Golongan Kata</b> kekal dan boleh digunakan mengikut giliran.</li><li>Selepas <b>10 pusingan</b>, jumlah mata tertinggi menjadi <b>JUARA MORFOGO</b>.</li></ol></section>
 </div>
 <section id="lobby" class="panel lobby hidden"><h2>🏫 Bilik <span id="roomLabel"></span></h2><p class="muted">Kongsi link ini kepada pemain lain:</p><input id="shareLink" class="input" readonly style="width:min(700px,100%)"><div class="form" style="justify-content:center;margin-top:10px"><button class="btn light" onclick="copyLink()">🔗 Salin Link</button></div><p id="copyMsg" class="mini"></p><div id="lobbyPlayers" class="players" style="margin-top:16px"></div><p id="hostHint" class="muted"></p><button id="startBtn" class="btn gold hidden" onclick="startGame()">🚀 Mula Permainan</button></section>
-<section id="game" class="game hidden"><div class="panel"><div class="section-title"><div><b>MorfoGo</b> <span class="turntag">LIVE GAME</span></div><div>Golongan kata: <b id="currentCat">-</b> · Kad anda: <b id="count">0</b></div></div><div id="turn" class="turn" style="margin-top:15px">Menunggu giliran...</div><div id="notice"></div></div>
-<div class="panel topgrid"><div><div class="section-title"><h3>Kad Teratas</h3></div><div id="top" class="topcard"></div></div><div><h3>Pemain</h3><div id="players" class="players"></div><p class="mini" style="margin-top:14px">Giliran akan diserlahkan secara automatik.</p></div></div>
-<div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Tambah 1 Kad</button></div><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
+<section id="game" class="game hidden"><div class="panel"><div class="section-title"><div><b>MorfoGo</b> <span class="turntag">LIVE GAME</span></div><div>Pusingan <b id="roundNo">1</b>/<b id="roundTotal">10</b> · Kad anda: <b id="count">0</b></div></div><div class="turn" style="margin-top:15px">Golongan Kata: <b id="currentCat">Menunggu pembuka...</b><br><span id="turn">Menunggu giliran...</span></div><div id="notice"></div></div>
+<div class="panel"><div class="section-title"><h3>🏆 Papan Skor</h3><span class="mini">Mata terkumpul</span></div><div id="players" class="players"></div></div>
+<div class="panel"><div class="section-title"><h3>🎴 Kad yang telah dimainkan</h3><span class="mini">Nilai tertinggi menang</span></div><div id="plays" class="hand"></div><div id="roundResult" class="notice hidden"></div></div>
+<div class="panel"><div class="section-title"><h3>Kad Anda</h3><button class="btn light" onclick="drawCard()">➕ Ambil 1 Kad</button></div><p class="mini">Jika tiada kad kategori yang sesuai, anda boleh mengambil satu kad.</p><div id="hand" class="hand"></div><div id="win" class="winner hidden"></div></div></section>
 <div class="footer">Unit Bahasa Melayu MRSM Tun Mohammad Fuad Stephens</div></div>
 <script>
-let ws = null;
-let me = null;
-let isHost = false;
-let state = null;
-let hand = [];
-
-function $(id){
-  return document.getElementById(id);
-}
-
-function connect(){
-  return new Promise((resolve,reject)=>{
-    if(ws && ws.readyState === WebSocket.OPEN){
-      resolve();
-      return;
-    }
-
-    ws = new WebSocket(
-      (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host
-    );
-
-    ws.onopen = () => {
-      resolve();
-    };
-
-    ws.onmessage = e => {
-      const m = JSON.parse(e.data);
-
-      if(m.type === 'joined'){
-        me = m.id;
-        isHost = m.host;
-
-        $('shareLink').value =
-          location.origin + location.pathname + '?room=' + m.room;
-
-        $('roomLabel').textContent = m.room;
-        $('home').classList.add('hidden');
-        $('lobby').classList.remove('hidden');
-        $('startBtn').classList.toggle('hidden', !isHost);
-
-        renderLobby();
-      }
-
-      else if(m.type === 'state'){
-        state = m.state;
-
-        if(!state.started){
-          renderLobby();
-        }else{
-          showGame();
-          render();
-        }
-      }
-
-      else if(m.type === 'hand'){
-        hand = m.hand;
-        renderHand();
-      }
-
-      else if(m.type === 'notice'){
-        notice(m.message);
-      }
-
-      else if(m.type === 'error'){
-        alert(m.message);
-      }
-    };
-
-    ws.onerror = () => {
-      alert('Sambungan gagal. Cuba semula.');
-      reject(new Error('WebSocket connection failed'));
-    };
-
-    ws.onclose = () => {
-      ws = null;
-    };
-  });
-}
-
-function send(x){
-  if(ws && ws.readyState === WebSocket.OPEN){
-    ws.send(JSON.stringify(x));
-  }
-}
-
-async function createRoom(){
-  const name = $('name').value.trim();
-
-  if(!name){
-    return alert('Masukkan nama pemain.');
-  }
-
-  try{
-    await connect();
-
-    send({
-      type: 'create',
-      name: name,
-      target: Number($('target').value)
-    });
-  }catch(e){}
-}
-
-async function joinRoom(){
-  const name = $('name').value.trim();
-  const room = $('room').value.trim().toUpperCase();
-
-  if(!name || !room){
-    return alert('Masukkan nama dan kod bilik.');
-  }
-
-  try{
-    await connect();
-
-    send({
-      type: 'join',
-      name: name,
-      room: room
-    });
-  }catch(e){}
-}
-
-function renderLobby(){
-  if(!state) return;
-
-  $('lobbyPlayers').innerHTML =
-    state.players.map((p,i) =>
-      `<span class="pill">${i===0?'👑 ':''}${esc(p.name)}</span>`
-    ).join('');
-
-  $('hostHint').textContent =
-    isHost
-      ? `Pemain ${state.players.length}/${state.targetPlayers}. Mulakan apabila semua pemain sudah masuk.`
-      : `Menunggu hos memulakan permainan… ${state.players.length}/${state.targetPlayers}`;
-
-  if(isHost){
-    $('startBtn').classList.toggle(
-      'hidden',
-      state.players.length !== state.targetPlayers
-    );
-  }
-}
-
-function copyLink(){
-  navigator.clipboard?.writeText($('shareLink').value);
-  $('copyMsg').textContent = 'Link telah disalin.';
-  setTimeout(() => $('copyMsg').textContent = '', 2000);
-}
-
-function startGame(){
-  send({type:'start'});
-}
-
-function showGame(){
-  $('lobby').classList.add('hidden');
-  $('game').classList.remove('hidden');
-}
-
-function slug(s){
-  return String(s).replace(/\s+/g,'-');
-}
-
-function render(){
-  const p = state.players.find(x => x.id === state.turn);
-
-  $('currentCat').textContent = state.category || '-';
-  $('count').textContent = hand.length;
-  $('turn').textContent = p ? `🎯 GILIRAN: ${p.name}` : 'Menunggu…';
-
-  $('players').innerHTML =
-    state.players.map(p =>
-      `<span class="pill">${p.id===state.turn?'🎯 ':''}${esc(p.name)} · ${p.count} kad</span>`
-    ).join('');
-
-  renderTop();
-  renderHand();
-
-  if(state.winner){
-    const w = state.players.find(p => p.id === state.winner);
-    $('win').classList.remove('hidden');
-    $('win').textContent = `🏆 ${w?.name || 'Pemain'} MENANG!`;
-  }
-}
-
-function renderTop(){
-  const c = state.top;
-  if(!c) return;
-  $('top').innerHTML = cardHTML(c);
-}
-
-function renderHand(){
-  $('hand').innerHTML =
-    hand.map(c =>
-      `<button class="playcard ${c.type!=='normal'?'special':slug(c.category)}"
-        onclick="play('${c.id}')">
-        <span class="num">${c.number ?? '★'}</span>
-        <span class="word">${esc(c.word)}</span>
-        <span class="cat">${esc(c.category || specialName(c.type))}</span>
-      </button>`
-    ).join('');
-}
-
-function cardHTML(c){
-  return `<div class="uno-card ${c.type!=='normal'?'special':'normal '+slug(c.category)}">
-    <span class="num">${c.number ?? '★'}</span>
-    <span class="word">${esc(c.word)}</span>
-    <span class="cat">${esc(c.category || specialName(c.type))}</span>
-  </div>`;
-}
-
-function specialName(t){
-  return ({
-    draw2:'+2 KAD',
-    skip:'LANGKAU',
-    reverse:'TERBALIK',
-    wild:'TUKAR GOLONGAN'
-  })[t] || t;
-}
-
-function play(id){
-  if(!state || state.turn !== me)
-    return notice('Bukan giliran anda.');
-
-  const c = hand.find(x => x.id === id);
-  if(!c) return;
-
-  if(c.type === 'wild'){
-    const pick = prompt(
-      'Pilih golongan kata:\n' +
-      '1. Kata Nama\n' +
-      '2. Kata Kerja\n' +
-      '3. Kata Adjektif\n' +
-      '4. Kata Hubung\n' +
-      '5. Kata Sendi'
-    );
-
-    const map = {
-      '1':'Kata Nama',
-      '2':'Kata Kerja',
-      '3':'Kata Adjektif',
-      '4':'Kata Hubung',
-      '5':'Kata Sendi'
-    };
-
-    if(!map[pick]) return;
-
-    send({
-      type:'play',
-      cardId:id,
-      category:map[pick]
-    });
-  }else{
-    send({
-      type:'play',
-      cardId:id
-    });
-  }
-}
-
-function drawCard(){
-  if(state?.turn !== me)
-    return notice('Bukan giliran anda.');
-
-  send({type:'draw'});
-}
-
-function notice(t){
-  $('notice').innerHTML =
-    `<div class="notice">${esc(t)}</div>`;
-
-  setTimeout(
-    () => $('notice').innerHTML = '',
-    3500
-  );
-}
-
-function esc(s){
-  return String(s ?? '').replace(
-    /[&<>'"]/g,
-    c => ({
-      '&':'&amp;',
-      '<':'&lt;',
-      '>':'&gt;',
-      "'":'&#39;',
-      '"':'&quot;'
-    }[c])
-  );
-}
-</script>
+let ws=null,me=null,isHost=false,state=null,hand=[];
+function $(id){return document.getElementById(id)}
+function connect(){return new Promise((resolve,reject)=>{if(ws&&ws.readyState===WebSocket.OPEN)return resolve();ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);ws.onopen=resolve;ws.onmessage=e=>{const m=JSON.parse(e.data);if(m.type==='joined'){me=m.id;isHost=m.host;$('shareLink').value=location.origin+location.pathname+'?room='+m.room;$('roomLabel').textContent=m.room;$('home').classList.add('hidden');$('lobby').classList.remove('hidden');$('startBtn').classList.toggle('hidden',!isHost);renderLobby()}else if(m.type==='state'){state=m.state;if(!state.started)renderLobby();else{showGame();render()}}else if(m.type==='hand'){hand=m.hand;renderHand()}else if(m.type==='notice'){notice(m.message)}else if(m.type==='error'){alert(m.message)}};ws.onerror=()=>{alert('Sambungan gagal. Cuba semula.');reject(new Error('WebSocket connection failed'))};ws.onclose=()=>{ws=null}})}
+function send(x){if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(x))}
+async function createRoom(){const name=$('name').value.trim();if(!name)return alert('Masukkan nama pemain.');try{await connect();send({type:'create',name,target:Number($('target').value)})}catch(e){}}
+async function joinRoom(){const name=$('name').value.trim(),room=$('room').value.trim().toUpperCase();if(!name||!room)return alert('Masukkan nama dan kod bilik.');try{await connect();send({type:'join',name,room})}catch(e){}}
+function renderLobby(){if(!state)return;$('lobbyPlayers').innerHTML=state.players.map((p,i)=>`<span class="pill">${i===0?'👑 ':''}${esc(p.name)}</span>`).join('');$('hostHint').textContent=isHost?`Pemain ${state.players.length}/${state.targetPlayers}. Mulakan apabila semua pemain sudah masuk.`:`Menunggu hos memulakan permainan… ${state.players.length}/${state.targetPlayers}`;if(isHost)$('startBtn').classList.toggle('hidden',state.players.length!==state.targetPlayers)}
+function copyLink(){navigator.clipboard?.writeText($('shareLink').value);$('copyMsg').textContent='Link telah disalin.';setTimeout(()=>$('copyMsg').textContent='',2000)}
+function startGame(){send({type:'start'})}
+function showGame(){$('lobby').classList.add('hidden');$('game').classList.remove('hidden')}
+function render(){if(!state)return;$('roundNo').textContent=Math.min(state.round,state.totalRounds);$('roundTotal').textContent=state.totalRounds;$('currentCat').textContent=state.category||'Pilih kad pembuka';const p=state.players.find(x=>x.id===state.turn);$('turn').textContent=p?`🎯 GILIRAN: ${p.name}`:'Pusingan tamat';$('count').textContent=hand.length;$('players').innerHTML=state.players.slice().sort((a,b)=>b.score-a.score).map((p,i)=>`<span class="pill">${i===0?'🏆 ':''}${esc(p.name)} · ${p.score} mata</span>`).join('');renderPlays();if(state.roundNotice){$('roundResult').classList.remove('hidden');$('roundResult').textContent=state.roundNotice}else $('roundResult').classList.add('hidden');if(state.winner){const w=state.players.find(p=>p.id===state.winner);$('win').classList.remove('hidden');$('win').textContent=`🏆 ${w?.name||'Pemain'} MENANG MORFOGO!`;}}
+function renderPlays(){$('plays').innerHTML=(state.plays||[]).map(x=>`<div class="playcard ${x.special?'special':slug(x.card.category)}"><span class="num">${x.card.number??'★'}</span><span class="word">${esc(x.card.word)}</span><span class="cat">${esc(x.name)} · ${x.special?'SPECIAL':x.score+' mata'}</span></div>`).join('')||'<span class="mini">Belum ada kad dimainkan.</span>'}
+function renderHand(){$('hand').innerHTML=hand.map(c=>{let disabled='';if(state&&state.turn!==me)disabled=' disabled';return `<button class="playcard ${c.type!=='normal'?'special':slug(c.category)}"${disabled} onclick="play('${c.id}')"><span class="num">${c.number??'★'}</span><span class="word">${esc(c.word)}</span><span class="cat">${esc(c.category||specialName(c.type))}</span></button>`}).join('')}
+function slug(s){return String(s).replace(/\s+/g,'-')}
+function specialName(t){return({draw2:'+2 KAD',skip:'LANGKAU',reverse:'TERBALIK',wild:'TUKAR GOLONGAN'})[t]||t}
+function play(id){if(!state||state.turn!==me)return notice('Bukan giliran anda.');const c=hand.find(x=>x.id===id);if(!c)return;if(c.type==='wild'){const pick=prompt('Pilih golongan kata:\n1. Kata Nama\n2. Kata Kerja\n3. Kata Adjektif\n4. Kata Hubung\n5. Kata Sendi');const map={'1':'Kata Nama','2':'Kata Kerja','3':'Kata Adjektif','4':'Kata Hubung','5':'Kata Sendi'};if(!map[pick])return;send({type:'play',cardId:id,category:map[pick]})}else send({type:'play',cardId:id})}
+function drawCard(){if(state?.turn!==me)return notice('Bukan giliran anda.');send({type:'draw'})}
+function notice(t){$('notice').innerHTML=`<div class="notice">${esc(t)}</div>`;setTimeout(()=>$('notice').innerHTML='',3500)}
+function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+</script></body></html>
